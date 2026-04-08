@@ -4,100 +4,125 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dashboard Pointage — KAHIA-GENETHICAL</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
-    body { background: #f1f5f9; min-height: 100vh; }
+    :root {
+      --teal:#0f766e; --teal-l:#14b8a6; --blue:#1d4ed8; --green:#059669;
+      --red:#dc2626; --amber:#d97706; --slate:#334155; --slate-l:#64748b;
+      --border:#e2e8f0; --bg:#f1f5f9; --white:#ffffff;
+    }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { background:var(--bg); min-height:100vh; font-family:'Sora',sans-serif; color:var(--slate); }
 
-    /* HEADER */
-    .header {
-      background: linear-gradient(135deg, #0f766e 0%, #1d4ed8 100%);
-      color: white; padding: 20px 28px;
-      display: flex; align-items: center; justify-content: space-between;
-    }
-    .header h1 { font-size: 20px; font-weight: 800; }
-    .header p { font-size: 12px; opacity: .7; margin-top: 3px; }
-    .live-badge {
-      display: flex; align-items: center; gap: 7px;
-      background: rgba(255,255,255,.15); padding: 6px 14px;
-      border-radius: 20px; font-size: 12px; font-weight: 700;
-    }
-    .live-dot {
-      width: 8px; height: 8px; border-radius: 50%;
-      background: #4ade80; animation: pulse 1.5s infinite;
-    }
+    .header { background:linear-gradient(135deg,#0f766e 0%,#1e40af 100%); color:white; padding:20px 28px; display:flex; align-items:center; justify-content:space-between; }
+    .header h1 { font-size:19px; font-weight:800; letter-spacing:-.02em; }
+    .header p  { font-size:11px; opacity:.65; margin-top:3px; }
+    .live-badge { display:flex; align-items:center; gap:7px; background:rgba(255,255,255,.15); padding:6px 14px; border-radius:20px; font-size:11px; font-weight:700; }
+    .live-dot { width:8px; height:8px; border-radius:50%; background:#4ade80; animation:pulse 1.5s infinite; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
 
-    /* KPIs */
-    .kpis {
-      display: grid; grid-template-columns: repeat(4, 1fr);
-      gap: 16px; padding: 24px 28px 0;
-    }
-    .kpi {
-      background: white; border-radius: 12px; padding: 20px;
-      text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,.08);
-      border-top: 4px solid #0f766e;
-    }
-    .kpi-val { font-size: 32px; font-weight: 800; color: #0f766e; }
-    .kpi-lbl { font-size: 12px; color: #64748b; margin-top: 5px; font-weight: 600; }
-    .kpi:nth-child(2) { border-top-color: #1d4ed8; }
-    .kpi:nth-child(2) .kpi-val { color: #1d4ed8; }
-    .kpi:nth-child(3) { border-top-color: #059669; }
-    .kpi:nth-child(3) .kpi-val { color: #059669; }
-    .kpi:nth-child(4) { border-top-color: #dc2626; }
-    .kpi:nth-child(4) .kpi-val { color: #dc2626; }
+    .filter-bar { display:flex; align-items:center; gap:10px; padding:16px 28px 0; flex-wrap:wrap; }
+    .filter-bar label { font-size:12px; font-weight:700; }
+    .filter-bar input[type="date"] { padding:7px 12px; border:2px solid var(--border); border-radius:8px; font-size:12px; font-family:'Sora',sans-serif; color:var(--slate); outline:none; cursor:pointer; }
+    .filter-bar input[type="date"]:focus { border-color:var(--teal); }
+    .btn { padding:7px 16px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; border:2px solid transparent; font-family:'Sora',sans-serif; transition:.15s; }
+    .btn-primary { background:var(--teal); color:white; }
+    .btn-primary:hover { background:#0d6060; }
+    .btn-outline { background:white; color:var(--teal); border-color:var(--teal); }
+    .btn-outline:hover { background:#f0fdf9; }
+    .btn-csv { background:white; color:var(--blue); border-color:var(--blue); }
+    .btn-csv:hover { background:#eff6ff; }
+    .filter-info { font-size:11px; color:#94a3b8; margin-left:auto; }
 
-    /* UPDATE BAR */
-    #last-update {
-      font-size: 11px; color: #94a3b8;
-      padding: 10px 28px; text-align: right;
-    }
+    .tabs { display:flex; gap:0; padding:16px 28px 0; }
+    .tab { padding:9px 20px; font-size:12px; font-weight:700; cursor:pointer; border-bottom:3px solid transparent; color:var(--slate-l); transition:.15s; user-select:none; }
+    .tab.active { color:var(--teal); border-bottom-color:var(--teal); }
+    .tab.tab-map.active { color:#0ea5e9; border-bottom-color:#0ea5e9; }
+    .tab:hover:not(.active) { color:var(--slate); }
 
-    /* TABLE SECTION */
-    .section { padding: 0 28px 28px; }
-    .section-title {
-      font-size: 13px; font-weight: 800; color: #334155;
-      text-transform: uppercase; letter-spacing: .05em;
-      margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
-    }
-    table {
-      width: 100%; border-collapse: collapse;
-      background: white; border-radius: 12px;
-      overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.08);
-    }
-    thead { background: #f8fafc; }
-    th {
-      padding: 12px 16px; text-align: left;
-      font-size: 11px; color: #64748b;
-      text-transform: uppercase; letter-spacing: .05em;
-      font-weight: 700; border-bottom: 2px solid #e2e8f0;
-    }
-    td { padding: 12px 16px; border-top: 1px solid #f1f5f9; font-size: 13px; }
-    tr:hover td { background: #f8fafc; }
-    .new-row { animation: highlight .8s ease; }
-    @keyframes highlight { from { background: #dcfce7; } to { background: transparent; } }
+    .kpis { display:grid; grid-template-columns:repeat(5,1fr); gap:14px; padding:16px 28px 0; }
+    .kpi { background:white; border-radius:12px; padding:18px 16px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,.07); border-top:3px solid var(--teal); }
+    .kpi-val { font-size:28px; font-weight:800; color:var(--teal); font-family:'DM Mono',monospace; }
+    .kpi-lbl { font-size:11px; color:var(--slate-l); margin-top:4px; font-weight:600; }
+    .kpi:nth-child(2){border-top-color:var(--blue)}.kpi:nth-child(2) .kpi-val{color:var(--blue)}
+    .kpi:nth-child(3){border-top-color:var(--green)}.kpi:nth-child(3) .kpi-val{color:var(--green)}
+    .kpi:nth-child(4){border-top-color:var(--red)}.kpi:nth-child(4) .kpi-val{color:var(--red)}
+    .kpi:nth-child(5){border-top-color:var(--amber)}.kpi:nth-child(5) .kpi-val{color:var(--amber)}
 
-    /* BADGES */
-    .badge {
-      display: inline-block; padding: 3px 10px;
-      border-radius: 20px; font-size: 11px; font-weight: 700;
-    }
-    .badge-g { background: #dcfce7; color: #15803d; }
-    .badge-r { background: #fee2e2; color: #dc2626; }
-    .badge-y { background: #fef9c3; color: #854d0e; }
+    #last-update { font-size:11px; color:#94a3b8; padding:8px 28px; text-align:right; font-family:'DM Mono',monospace; }
 
-    /* EMPTY STATE */
-    .empty {
-      text-align: center; padding: 48px;
-      color: #94a3b8; font-size: 14px;
-    }
-    .empty .icon { font-size: 40px; margin-bottom: 12px; }
+    .panel { display:none; padding:0 28px 28px; }
+    .panel.active { display:block; }
 
-    /* RESPONSIVE */
-    @media (max-width: 768px) {
-      .kpis { grid-template-columns: repeat(2, 1fr); }
-      .kpis, .section { padding-left: 16px; padding-right: 16px; }
-      .header { flex-direction: column; gap: 12px; align-items: flex-start; }
+    .section-title { font-size:11px; font-weight:800; color:var(--slate); text-transform:uppercase; letter-spacing:.07em; margin-bottom:12px; margin-top:4px; display:flex; align-items:center; gap:8px; }
+
+    table { width:100%; border-collapse:collapse; background:white; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.07); }
+    thead { background:#f8fafc; }
+    th { padding:11px 14px; text-align:left; font-size:10px; color:var(--slate-l); text-transform:uppercase; letter-spacing:.06em; font-weight:700; border-bottom:2px solid var(--border); }
+    td { padding:11px 14px; border-top:1px solid #f1f5f9; font-size:12px; }
+    tr:hover td { background:#f8fafc; }
+    .new-row td { animation:hl 2s ease forwards; }
+    @keyframes hl { from{background:#dcfce7} to{background:transparent} }
+
+    .badge { display:inline-block; padding:2px 9px; border-radius:20px; font-size:10px; font-weight:700; }
+    .badge-g{background:#dcfce7;color:#15803d} .badge-r{background:#fee2e2;color:#dc2626} .badge-y{background:#fef9c3;color:#854d0e}
+    .slot-h1{background:#ccfbf1;color:#0f766e;font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px;font-family:'DM Mono',monospace}
+    .slot-h2{background:#dbeafe;color:#1d4ed8;font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px;font-family:'DM Mono',monospace}
+    .slot-h3{background:#ede9fe;color:#7c3aed;font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px;font-family:'DM Mono',monospace}
+    .slot-h4{background:#ffedd5;color:#ea580c;font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px;font-family:'DM Mono',monospace}
+    .slot-hs{background:#f1f5f9;color:#94a3b8;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;font-family:'DM Mono',monospace}
+
+    .slot-cell{text-align:center} .slot-empty{color:#cbd5e1;font-family:'DM Mono',monospace;font-size:12px}
+    .duree-val{font-family:'DM Mono',monospace;font-size:13px;font-weight:700}
+    .statut-complet{background:#dcfce7;color:#15803d} .statut-en_cours{background:#fef9c3;color:#854d0e} .statut-incomplet{background:#fee2e2;color:#dc2626}
+
+    .slot-legend { display:flex; gap:16px; flex-wrap:wrap; background:white; border-radius:10px; padding:12px 16px; margin-bottom:14px; box-shadow:0 1px 3px rgba(0,0,0,.06); font-size:11px; }
+    .legend-item { display:flex; align-items:center; gap:6px; font-weight:600; color:var(--slate-l); }
+    .legend-dot { width:10px; height:10px; border-radius:50%; }
+
+    .empty { text-align:center; padding:48px; color:#94a3b8; font-size:13px; }
+    .empty .icon { font-size:36px; margin-bottom:10px; }
+    .nom-employe { font-weight:700; color:#0f172a; }
+    .tel-employe { font-size:10px; color:#94a3b8; font-family:'DM Mono',monospace; }
+    .inconnu { color:var(--slate-l); font-style:italic; }
+
+    /* ══ MAP ══ */
+    #panel-carte { padding:0 28px 28px; }
+    .map-layout { display:grid; grid-template-columns:1fr 290px; gap:16px; margin-top:16px; }
+    #map { height:560px; border-radius:14px; overflow:hidden; box-shadow:0 2px 14px rgba(0,0,0,.13); z-index:0; }
+
+    .map-sidebar { display:flex; flex-direction:column; gap:12px; }
+    .map-card { background:white; border-radius:12px; padding:16px; box-shadow:0 1px 4px rgba(0,0,0,.08); }
+    .map-card h3 { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--slate); margin-bottom:12px; }
+
+    .map-legend-item { display:flex; align-items:center; gap:10px; padding:7px 0; border-bottom:1px solid #f1f5f9; font-size:12px; font-weight:600; cursor:pointer; transition:opacity .15s; user-select:none; }
+    .map-legend-item:last-child { border-bottom:none; }
+    .map-legend-item.hidden { opacity:.3; }
+    .map-legend-dot { width:13px; height:13px; border-radius:50%; border:2px solid rgba(0,0,0,.12); flex-shrink:0; }
+    .map-legend-count { margin-left:auto; font-family:'DM Mono',monospace; font-size:11px; color:var(--slate-l); background:#f1f5f9; padding:1px 8px; border-radius:10px; }
+
+    .map-list { display:flex; flex-direction:column; gap:5px; max-height:340px; overflow-y:auto; }
+    .map-list-item { display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:8px; background:#f8fafc; cursor:pointer; transition:background .12s; border:1px solid transparent; }
+    .map-list-item:hover { background:#e0f2fe; border-color:#bae6fd; }
+    .map-list-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+    .map-list-name { font-size:11px; font-weight:700; color:#0f172a; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .map-list-time { font-family:'DM Mono',monospace; font-size:10px; color:var(--slate-l); white-space:nowrap; }
+
+    .leaflet-popup-content { font-family:'Sora',sans-serif; min-width:170px; }
+    .popup-name { font-size:13px; font-weight:800; color:#0f172a; margin-bottom:8px; }
+    .popup-row { display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--slate-l); padding:3px 0; border-bottom:1px solid #f1f5f9; }
+    .popup-row:last-child { border-bottom:none; }
+    .popup-row strong { color:var(--slate); }
+
+    @media(max-width:900px){ .map-layout{grid-template-columns:1fr} #map{height:380px} }
+    @media(max-width:768px){
+      .kpis{grid-template-columns:repeat(2,1fr)}
+      .kpis,.panel,.filter-bar,.tabs,#panel-carte{padding-left:14px;padding-right:14px}
+      .header{flex-direction:column;gap:10px;align-items:flex-start}
+      .filter-info{display:none}
     }
   </style>
 </head>
@@ -108,131 +133,385 @@
     <h1>🏥 Tableau de Bord Pointage GPS</h1>
     <p>KAHIA-GENETHICAL — Mise à jour automatique en temps réel</p>
   </div>
-  <div class="live-badge">
-    <div class="live-dot"></div>
-    LIVE
-  </div>
+  <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+</div>
+
+<div class="filter-bar">
+  <label>📅 Date :</label>
+  <input type="date" id="filtre-date" />
+  <button class="btn btn-primary" onclick="filtrer()">🔍 Afficher</button>
+  <button class="btn btn-outline" onclick="resetAujourdhui()">📍 Aujourd'hui</button>
+  <button class="btn btn-csv" onclick="exporterCSV()">⬇️ Export CSV</button>
+  <span class="filter-info" id="filter-info"></span>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('pointages')">📍 Pointages bruts</div>
+  <div class="tab" onclick="switchTab('journees')">🕐 Journées H1→H4</div>
+  <div class="tab tab-map" onclick="switchTab('carte')">🗺️ Carte interactive</div>
 </div>
 
 <div class="kpis">
-  <div class="kpi">
-    <div class="kpi-val" id="k-total">—</div>
-    <div class="kpi-lbl">📍 Pointages aujourd'hui</div>
-  </div>
-  <div class="kpi">
-    <div class="kpi-val" id="k-employes">—</div>
-    <div class="kpi-lbl">👤 Employés actifs</div>
-  </div>
-  <div class="kpi">
-    <div class="kpi-val" id="k-valides">—</div>
-    <div class="kpi-lbl">✅ Validés</div>
-  </div>
-  <div class="kpi">
-    <div class="kpi-val" id="k-hors">—</div>
-    <div class="kpi-lbl">❌ Hors zone</div>
-  </div>
+  <div class="kpi"><div class="kpi-val" id="k-total">—</div><div class="kpi-lbl">📍 Pointages</div></div>
+  <div class="kpi"><div class="kpi-val" id="k-employes">—</div><div class="kpi-lbl">👤 Employés actifs</div></div>
+  <div class="kpi"><div class="kpi-val" id="k-valides">—</div><div class="kpi-lbl">✅ Dans zone</div></div>
+  <div class="kpi"><div class="kpi-val" id="k-hors">—</div><div class="kpi-lbl">❌ Hors zone</div></div>
+  <div class="kpi"><div class="kpi-val" id="k-complets">—</div><div class="kpi-lbl">✔️ Journées complètes</div></div>
 </div>
 
 <div id="last-update">Chargement...</div>
 
-<div class="section">
-  <div class="section-title">📍 Derniers pointages</div>
+<!-- PANEL 1 -->
+<div class="panel active" id="panel-pointages">
+  <div class="section-title" id="section-title">📍 Derniers pointages</div>
   <table>
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>Téléphone</th>
-        <th>Latitude</th>
-        <th>Longitude</th>
-        <th>Date / Heure</th>
-        <th>Statut</th>
-      </tr>
-    </thead>
-    <tbody id="tbody">
-      <tr><td colspan="6" class="empty">
-        <div class="icon">⏳</div>
-        Chargement des données...
-      </td></tr>
-    </tbody>
+    <thead><tr><th>#</th><th>Employé</th><th>Heure réelle</th><th>Slot</th><th>Latitude</th><th>Longitude</th><th>Statut</th></tr></thead>
+    <tbody id="tbody"><tr><td colspan="7" class="empty"><div class="icon">⏳</div>Chargement...</td></tr></tbody>
   </table>
+</div>
+
+<!-- PANEL 2 -->
+<div class="panel" id="panel-journees">
+  <div class="section-title" id="section-title-j">🕐 Journées de travail</div>
+  <div class="slot-legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#0f766e"></div>H1 Arrivée matin</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#1d4ed8"></div>H2 Départ déjeuner</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#7c3aed"></div>H3 Retour déjeuner</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#ea580c"></div>H4 Départ soir</div>
+  </div>
+  <table>
+    <thead><tr>
+      <th>Employé</th>
+      <th style="text-align:center;color:#0f766e">H1 Arrivée</th>
+      <th style="text-align:center;color:#1d4ed8">H2 Dép. Dej</th>
+      <th style="text-align:center;color:#7c3aed">H3 Ret. Dej</th>
+      <th style="text-align:center;color:#ea580c">H4 Dép. Soir</th>
+      <th style="text-align:center">⏱ Matin</th>
+      <th style="text-align:center">⏱ Après-midi</th>
+      <th style="text-align:center">⏱ Total</th>
+      <th>Statut</th>
+    </tr></thead>
+    <tbody id="tbody-j"><tr><td colspan="9" class="empty"><div class="icon">⏳</div>Chargement...</td></tr></tbody>
+  </table>
+</div>
+
+<!-- PANEL 3 : Carte -->
+<div class="panel" id="panel-carte">
+  <div class="map-layout">
+
+    <div id="map"></div>
+
+    <div class="map-sidebar">
+
+      <div class="map-card">
+        <h3>🎨 Légende — cliquer pour filtrer</h3>
+        <div class="map-legend-item" data-slot="site" onclick="toggleLayer('site')">
+          <div class="map-legend-dot" style="background:#0ea5e9"></div>
+          <span>Site KAHIA</span>
+          <span class="map-legend-count">📍</span>
+        </div>
+        <div class="map-legend-item" data-slot="H1" onclick="toggleLayer('H1')">
+          <div class="map-legend-dot" style="background:#0f766e"></div>
+          <span>H1 — Arrivée matin</span>
+          <span class="map-legend-count" id="lc-H1">0</span>
+        </div>
+        <div class="map-legend-item" data-slot="H2" onclick="toggleLayer('H2')">
+          <div class="map-legend-dot" style="background:#1d4ed8"></div>
+          <span>H2 — Dép. déjeuner</span>
+          <span class="map-legend-count" id="lc-H2">0</span>
+        </div>
+        <div class="map-legend-item" data-slot="H3" onclick="toggleLayer('H3')">
+          <div class="map-legend-dot" style="background:#7c3aed"></div>
+          <span>H3 — Ret. déjeuner</span>
+          <span class="map-legend-count" id="lc-H3">0</span>
+        </div>
+        <div class="map-legend-item" data-slot="H4" onclick="toggleLayer('H4')">
+          <div class="map-legend-dot" style="background:#ea580c"></div>
+          <span>H4 — Dép. soir</span>
+          <span class="map-legend-count" id="lc-H4">0</span>
+        </div>
+        <div class="map-legend-item" data-slot="hors_slot" onclick="toggleLayer('hors_slot')">
+          <div class="map-legend-dot" style="background:#94a3b8"></div>
+          <span>Hors slot</span>
+          <span class="map-legend-count" id="lc-hs">0</span>
+        </div>
+      </div>
+
+      <div class="map-card" style="flex:1;min-height:0">
+        <h3>📋 Liste des pointages</h3>
+        <div class="map-list" id="map-list">
+          <div style="color:#94a3b8;font-size:12px">Chargement...</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
 </div>
 
 <script>
   const SUPABASE_URL = 'https://kbigvliriqfowggwjfvh.supabase.co';
-  const SUPABASE_KEY = 'VOTRE_CLE_SUPABASE';
+  const SUPABASE_KEY = 'cle_supabase';
   const { createClient } = supabase;
   const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  async function load() {
-    const today = new Date().toISOString().split('T')[0];
-    const { data, error } = await sb
-      .from('pointages')
-      .select('*')
-      .gte('created_at', today)
-      .order('created_at', { ascending: false });
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('filtre-date').value = today;
+
+  let annuaire = {}, currentTab = 'pointages', lastData = [], lastJournees = [];
+
+  // ═══ LEAFLET ═══
+  const SLOT_COLORS = { H1:'#0f766e', H2:'#1d4ed8', H3:'#7c3aed', H4:'#ea580c', hors_slot:'#94a3b8' };
+  let map = null, layerGroups = {}, layerVisible = {};
+  let _mapItems = [];
+
+  function initMap() {
+    if (map) return;
+    map = L.map('map').setView([35.7272, -0.5898], 16);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution:'© OpenStreetMap', maxZoom:19
+    }).addTo(map);
+
+    ['site','H1','H2','H3','H4','hors_slot'].forEach(s => {
+      layerVisible[s] = true;
+      layerGroups[s] = L.layerGroup().addTo(map);
+    });
+
+    // ── Géofence + marqueur site ──
+    const SLat = 35.72722, SLon = -0.58983;
+    L.circle([SLat, SLon], {
+      radius:200, color:'#0ea5e9', fillColor:'#0ea5e9',
+      fillOpacity:.07, weight:2, dashArray:'7 5'
+    }).addTo(layerGroups['site']);
+
+    L.marker([SLat, SLon], {
+      icon: L.divIcon({
+        html:`<div style="background:#0ea5e9;color:white;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:19px;box-shadow:0 3px 12px #0ea5e988;border:3px solid white;">🏥</div>`,
+        className:'', iconSize:[40,40], iconAnchor:[20,20]
+      })
+    }).bindPopup(`
+      <div class="popup-name">KAHIA-GENETHICAL</div>
+      <div class="popup-row"><span>Zone de pointage</span><strong>Rayon 200 m</strong></div>
+      <div class="popup-row" style="font-family:'DM Mono',monospace;font-size:10px;color:#94a3b8;justify-content:center">${SLat}, ${SLon}</div>
+    `).addTo(layerGroups['site']);
+  }
+
+  function renderMap(data) {
+    if (!map) initMap();
+    ['H1','H2','H3','H4','hors_slot'].forEach(s => layerGroups[s].clearLayers());
+    const counts = {H1:0,H2:0,H3:0,H4:0,hors_slot:0};
+    _mapItems = [];
+
+    data.forEach((r, idx) => {
+      const lat = parseFloat(r.latitude), lon = parseFloat(r.longitude);
+      if (!r.latitude || !r.longitude || isNaN(lat) || isNaN(lon)) return;
+
+      const slot  = r.slot || 'hors_slot';
+      const color = SLOT_COLORS[slot] || '#94a3b8';
+      const nom   = getNom(r.telephone) || r.telephone || '?';
+      const heure = r.heure_reelle ? fmtHeure(r.heure_reelle) : '—';
+      const statut= r.statut || '—';
+      counts[slot]++;
+
+      const marker = L.marker([lat, lon], {
+        icon: L.divIcon({
+          html:`<div style="background:${color};color:white;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;font-family:'Sora',sans-serif;box-shadow:0 2px 8px ${color}99;border:2.5px solid white;">${slot==='hors_slot'?'?':slot}</div>`,
+          className:'', iconSize:[32,32], iconAnchor:[16,16]
+        })
+      }).bindPopup(`
+        <div class="popup-name">${nom}</div>
+        <div class="popup-row"><span>Slot</span><strong style="color:${color}">${slot}</strong></div>
+        <div class="popup-row"><span>Heure</span><strong>${heure}</strong></div>
+        <div class="popup-row"><span>Statut</span><strong>${statut}</strong></div>
+        <div class="popup-row" style="font-family:'DM Mono',monospace;font-size:10px;color:#94a3b8;justify-content:center">${lat.toFixed(5)}, ${lon.toFixed(5)}</div>
+      `);
+
+      layerGroups[slot].addLayer(marker);
+      _mapItems.push({ nom, heure, slot, color, marker });
+    });
+
+    // Comptes légende
+    document.getElementById('lc-H1').textContent = counts.H1;
+    document.getElementById('lc-H2').textContent = counts.H2;
+    document.getElementById('lc-H3').textContent = counts.H3;
+    document.getElementById('lc-H4').textContent = counts.H4;
+    document.getElementById('lc-hs').textContent  = counts.hors_slot;
+
+    // Restaurer visibilité
+    Object.entries(layerVisible).forEach(([s, vis]) => {
+      if (!vis) { if (map.hasLayer(layerGroups[s])) map.removeLayer(layerGroups[s]); }
+      else       { if (!map.hasLayer(layerGroups[s])) map.addLayer(layerGroups[s]); }
+    });
+
+    // Liste sidebar
+    const ml = document.getElementById('map-list');
+    if (_mapItems.length === 0) {
+      ml.innerHTML = `<div style="color:#94a3b8;font-size:12px;text-align:center;padding:20px">Aucun pointage GPS pour cette date</div>`;
+      return;
+    }
+    ml.innerHTML = _mapItems.map((item, i) => `
+      <div class="map-list-item" onclick="flyTo(${i})">
+        <div class="map-list-dot" style="background:${item.color}"></div>
+        <div class="map-list-name">${item.nom}</div>
+        <span class="map-list-time">${item.heure} · ${item.slot}</span>
+      </div>
+    `).join('');
+  }
+
+  window.flyTo = i => {
+    const it = _mapItems[i]; if (!it) return;
+    map.panTo(it.marker.getLatLng(), {animate:true});
+    it.marker.openPopup();
+  };
+
+  window.toggleLayer = slot => {
+    layerVisible[slot] = !layerVisible[slot];
+    document.querySelector(`[data-slot="${slot}"]`)?.classList.toggle('hidden', !layerVisible[slot]);
+    layerVisible[slot] ? map.addLayer(layerGroups[slot]) : map.removeLayer(layerGroups[slot]);
+  };
+
+  // ═══ ANNUAIRE ═══
+  async function chargerAnnuaire() {
+    const { data } = await sb.from('employes').select('telephone,nom,prenom');
+    if (!data) return;
+    annuaire = {};
+    data.forEach(e => { if (e.telephone) annuaire[String(e.telephone)] = `${e.prenom||''} ${e.nom||''}`.trim(); });
+  }
+
+  function getNom(tel) {
+    if (!tel) return null;
+    tel = String(tel).trim();
+    if (annuaire[tel]) return annuaire[tel];
+    if (tel.startsWith('213')) { const l='0'+tel.slice(3); if (annuaire[l]) return annuaire[l]; }
+    if (tel.startsWith('0'))   { const i='213'+tel.slice(1); if (annuaire[i]) return annuaire[i]; }
+    return null;
+  }
+
+  // ═══ TABS ═══
+  function switchTab(tab) {
+    currentTab = tab;
+    ['pointages','journees','carte'].forEach((t,i) =>
+      document.querySelectorAll('.tab')[i].classList.toggle('active', t===tab)
+    );
+    ['pointages','journees','carte'].forEach(t =>
+      document.getElementById(`panel-${t}`).classList.toggle('active', t===tab)
+    );
+    if (tab === 'carte') {
+      setTimeout(() => { initMap(); map.invalidateSize(); renderMap(lastData); }, 60);
+    }
+  }
+
+  // ═══ FORMAT ═══
+  const fmtHeure = s => s ? s.substring(0,5) : null;
+  function fmtDuree(val) {
+    if (val==null||val==='') return null;
+    const n=parseFloat(val); if(isNaN(n)) return null;
+    return `${Math.floor(n)}h${String(Math.round((n-Math.floor(n))*60)).padStart(2,'0')}`;
+  }
+
+  // ═══ LOAD ═══
+  async function load(dateChoisie) {
+    const date = dateChoisie || document.getElementById('filtre-date').value || today;
+    const dAff = new Date(date+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+    document.getElementById('section-title').textContent   = '📍 Pointages du '+dAff;
+    document.getElementById('section-title-j').textContent = '🕐 Journées du '+dAff;
+    document.getElementById('filter-info').textContent = dAff;
+
+    const { data, error } = await sb.from('pointages').select('*')
+      .gte('created_at', date+'T00:00:00.000Z')
+      .lte('created_at', date+'T23:59:59.999Z')
+      .order('created_at',{ascending:false});
 
     if (error) {
-      console.error(error);
-      document.getElementById('tbody').innerHTML = `
-        <tr><td colspan="6" class="empty">
-          <div class="icon">❌</div>
-          Erreur de connexion : ${error.message}
-        </td></tr>`;
-      return;
+      document.getElementById('tbody').innerHTML=`<tr><td colspan="7" class="empty"><div class="icon">❌</div>${error.message}</td></tr>`;
+    } else {
+      lastData = data;
+      renderPointages(data);
+      if (currentTab==='carte' && map) renderMap(data);
     }
 
-    // KPIs
-    document.getElementById('k-total').textContent = data.length;
-    document.getElementById('k-employes').textContent = [...new Set(data.map(r => r.telephone))].length;
-    document.getElementById('k-valides').textContent = data.filter(r => r.statut === 'valide').length;
-    document.getElementById('k-hors').textContent = data.filter(r => r.statut === 'hors_zone').length;
-    document.getElementById('last-update').textContent = '🕐 Mis à jour : ' + new Date().toLocaleTimeString('fr-FR');
+    const { data:jData } = await sb.from('journees_travail').select('*')
+      .eq('date_travail',date).order('updated_at',{ascending:false});
+    if (jData) { lastJournees=jData; renderJournees(jData); }
 
-    // Table
-    if (data.length === 0) {
-      document.getElementById('tbody').innerHTML = `
-        <tr><td colspan="6" class="empty">
-          <div class="icon">📭</div>
-          Aucun pointage aujourd'hui
-        </td></tr>`;
+    document.getElementById('last-update').textContent = '🕐 Mis à jour : '+new Date().toLocaleTimeString('fr-FR');
+  }
+
+  // ═══ RENDER POINTAGES ═══
+  function renderPointages(data) {
+    document.getElementById('k-total').textContent    = data.length;
+    document.getElementById('k-employes').textContent = [...new Set(data.map(r=>r.telephone))].length;
+    document.getElementById('k-valides').textContent  = data.filter(r=>r.statut==='valide').length;
+    document.getElementById('k-hors').textContent     = data.filter(r=>r.statut==='hors_zone').length;
+
+    if (!data.length) {
+      document.getElementById('tbody').innerHTML=`<tr><td colspan="7" class="empty"><div class="icon">📭</div>Aucun pointage pour cette date</td></tr>`;
       return;
     }
-
-    document.getElementById('tbody').innerHTML = data.map((r, i) => {
-      const statut = r.statut || 'en_attente';
-      const badgeClass = statut === 'valide' ? 'badge-g' : statut === 'hors_zone' ? 'badge-r' : 'badge-y';
-      const date = new Date(r.created_at).toLocaleString('fr-FR');
-      const lat = r.latitude ? parseFloat(r.latitude).toFixed(6) : '—';
-      const lon = r.longitude ? parseFloat(r.longitude).toFixed(6) : '—';
-      return `<tr>
-        <td style="color:#94a3b8;font-size:12px;">${r.id}</td>
-        <td><strong>${r.telephone || '—'}</strong></td>
-        <td style="font-family:monospace;font-size:12px;">${lat}</td>
-        <td style="font-family:monospace;font-size:12px;">${lon}</td>
-        <td style="color:#64748b;">${date}</td>
-        <td><span class="badge ${badgeClass}">${statut}</span></td>
-      </tr>`;
+    document.getElementById('tbody').innerHTML = data.map(r => {
+      const statut=r.statut||'en_attente';
+      const bc=statut==='valide'?'badge-g':statut==='hors_zone'?'badge-r':'badge-y';
+      const slot=r.slot||'hors_slot';
+      const sc=slot==='H1'?'slot-h1':slot==='H2'?'slot-h2':slot==='H3'?'slot-h3':slot==='H4'?'slot-h4':'slot-hs';
+      const lat=r.latitude?parseFloat(r.latitude).toFixed(5):'—';
+      const lon=r.longitude?parseFloat(r.longitude).toFixed(5):'—';
+      const heure=r.heure_reelle?fmtHeure(r.heure_reelle):(() => { const d=new Date(r.created_at);d.setHours(d.getHours()+1);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); })();
+      const nom=getNom(r.telephone);
+      const emp=nom?`<span class="nom-employe">${nom}</span><br><span class="tel-employe">${r.telephone}</span>`:`<span class="inconnu">${r.telephone||'—'}</span>`;
+      return `<tr><td style="color:#94a3b8;font-family:'DM Mono',monospace;font-size:11px">${r.id}</td><td>${emp}</td><td style="font-family:'DM Mono',monospace;font-weight:600">${heure}</td><td><span class="${sc}">${slot}</span></td><td style="font-family:'DM Mono',monospace;font-size:11px;color:#64748b">${lat}</td><td style="font-family:'DM Mono',monospace;font-size:11px;color:#64748b">${lon}</td><td><span class="badge ${bc}">${statut}</span></td></tr>`;
     }).join('');
   }
 
-  // Realtime
-  sb.channel('rt-pointages')
-    .on('postgres_changes', {
-      event: 'INSERT',
-      schema: 'public',
-      table: 'pointages'
-    }, (payload) => {
-      console.log('Nouveau pointage reçu :', payload.new);
-      load();
-    })
-    .subscribe();
+  // ═══ RENDER JOURNEES ═══
+  function renderJournees(data) {
+    document.getElementById('k-complets').textContent = data.filter(j=>j.statut_jour==='complet').length;
+    if (!data.length) {
+      document.getElementById('tbody-j').innerHTML=`<tr><td colspan="9" class="empty"><div class="icon">📭</div>Aucune journée pour cette date</td></tr>`;
+      return;
+    }
+    document.getElementById('tbody-j').innerHTML = data.map(j => {
+      const nom=getNom(j.telephone);
+      const emp=nom?`<span class="nom-employe">${nom}</span><br><span class="tel-employe">${j.telephone}</span>`:`<span class="inconnu">${j.telephone||'—'}</span>`;
+      const h1=fmtHeure(j.h1_arrivee),h2=fmtHeure(j.h2_depart_dej),h3=fmtHeure(j.h3_retour_dej),h4=fmtHeure(j.h4_depart_soir);
+      const mat=fmtDuree(j.duree_matin),apm=fmtDuree(j.duree_apmidi),tot=fmtDuree(j.duree_totale);
+      const st=j.statut_jour||'en_cours';
+      const sc=(v,c)=>v?`<td class="slot-cell"><span class="${c}">${v}</span></td>`:`<td class="slot-cell"><span class="slot-empty">—</span></td>`;
+      const dc=(v,c)=>v?`<td style="text-align:center"><span class="duree-val" style="color:${c}">${v}</span></td>`:`<td style="text-align:center;color:#cbd5e1;font-family:'DM Mono',monospace">—</td>`;
+      return `<tr><td>${emp}</td>${sc(h1,'slot-h1')}${sc(h2,'slot-h2')}${sc(h3,'slot-h3')}${sc(h4,'slot-h4')}${dc(mat,'#0f766e')}${dc(apm,'#7c3aed')}${dc(tot,'#334155')}<td><span class="badge statut-${st}">${st==='complet'?'✔ Complet':st==='en_cours'?'⏳ En cours':'⚠ Incomplet'}</span></td></tr>`;
+    }).join('');
+  }
 
-  // Charger au démarrage
-  load();
+  function filtrer() { load(); }
+  function resetAujourdhui() { document.getElementById('filtre-date').value=today; load(today); }
 
-  // Rafraîchir toutes les 30s
-  setInterval(load, 30000);
+  // ═══ CSV ═══
+  function exporterCSV() {
+    const date=document.getElementById('filtre-date').value;
+    if (currentTab==='journees') {
+      let csv='Téléphone;Employé;Date;H1;H2;H3;H4;Matin;AM;Total;Statut\n';
+      lastJournees.forEach(j=>{const n=getNom(j.telephone)||'';csv+=[j.telephone,n,j.date_travail,j.h1_arrivee||'',j.h2_depart_dej||'',j.h3_retour_dej||'',j.h4_depart_soir||'',j.duree_matin||'',j.duree_apmidi||'',j.duree_totale||'',j.statut_jour||''].map(v=>`"${v}"`).join(';')+'\n';});
+      telecharger(csv,`journees_${date}.csv`);
+    } else {
+      let csv='ID;Téléphone;Employé;Heure;Slot;Latitude;Longitude;Statut\n';
+      lastData.forEach(r=>{const n=getNom(r.telephone)||'';const h=r.heure_reelle?fmtHeure(r.heure_reelle):'';csv+=[r.id,r.telephone,n,h,r.slot||'',r.latitude||'',r.longitude||'',r.statut||''].map(v=>`"${v}"`).join(';')+'\n';});
+      telecharger(csv,`pointages_${date}.csv`);
+    }
+  }
+  function telecharger(csv,nom) {
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'}));
+    a.download=nom; a.click();
+  }
+
+  // ═══ REALTIME ═══
+  sb.channel('rt-p').on('postgres_changes',{event:'INSERT',schema:'public',table:'pointages'},()=>{
+    if(document.getElementById('filtre-date').value===today) load(today).then(()=>document.querySelector('#tbody tr:first-child')?.classList.add('new-row'));
+  }).subscribe();
+  sb.channel('rt-j').on('postgres_changes',{event:'*',schema:'public',table:'journees_travail'},()=>{
+    if(document.getElementById('filtre-date').value===today) load(today);
+  }).subscribe();
+
+  chargerAnnuaire().then(()=>load(today));
+  setInterval(()=>{ if(document.getElementById('filtre-date').value===today) load(today); },30000);
 </script>
-
 </body>
 </html>
