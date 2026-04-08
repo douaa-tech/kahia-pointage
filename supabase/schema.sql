@@ -94,3 +94,19 @@ CREATE TABLE resume_mensuel (
   irg numeric,
   net_a_payer numeric
 );
+CREATE TABLE IF NOT EXISTS journees_travail (
+  id              bigserial PRIMARY KEY,
+  telephone       text NOT NULL,
+  date_travail    date NOT NULL,
+  h1_arrivee      time,
+  h2_depart_dej   time,
+  h3_retour_dej   time,
+  h4_depart_soir  time,
+  duree_matin     numeric(5,2),
+  duree_apmidi    numeric(5,2),
+  duree_totale    numeric(5,2),
+  statut_jour     text DEFAULT 'en_cours',
+  created_at      timestamptz DEFAULT now(),
+  updated_at      timestamptz DEFAULT now(),
+  UNIQUE(telephone, date_travail)
+);
